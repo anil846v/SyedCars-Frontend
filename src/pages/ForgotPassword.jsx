@@ -1,0 +1,199 @@
+﻿import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { authApi } from '../utils/api';
+import logo from '../assets/logo1.png';
+
+// Step 1: email â†’ Step 2: OTP â†’ success (navigate to reset)
+export default function ForgotPassword() {
+  const navigate = useNavigate();
+  const [step,    setStep]    = useState('email'); // 'email' | 'otp'
+  const [email,   setEmail]   = useState('');
+  const [otp,     setOtp]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+  const [sent,    setSent]    = useState(false);
+
+  const sendOtp = async (e) => {
+    e.preventDefault();
+    setError(''); setLoading(true);
+    try {
+      await authApi.forgotPassword({ email });
+      setSent(true);
+      setStep('otp');
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtp = async (e) => {
+    e.preventDefault();
+    if (otp.length !== 6) { setError('Enter the 6-digit OTP.'); return; }
+    setError(''); setLoading(true);
+    try {
+      const res = await authApi.verifyOtp({ email, otp });
+      // Pass resetToken via navigation state
+      navigate('/admin/reset-password', { state: { resetToken: res.resetToken, email } });
+    } catch (err) {
+      setError(err.message || 'Invalid OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: '#0A0A12', fontFamily: "'DM Sans', sans-serif", padding: '24px',
+    }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32, justifyContent: 'center' }}>
+          <img src={logo} alt="Syed Cars" style={{ height: 36 }} />
+          <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '1.3rem', color: '#fff', fontWeight: 500 }}>
+            Syed <strong style={{ color: '#FF5A09' }}>Cars</strong>
+          </span>
+        </div>
+
+        <div style={{
+          background: '#fff', borderRadius: 16, padding: '36px 40px',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+        }}>
+          {/* Back link */}
+          <Link to="/admin/login" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: '0.82rem', color: '#6B7280', marginBottom: 20, textDecoration: 'none',
+          }}
+            onMouseEnter={e => e.currentTarget.style.color = '#FF5A09'}
+            onMouseLeave={e => e.currentTarget.style.color = '#6B7280'}
+          >
+            <ArrowLeft size={14} /> Back to Login
+          </Link>
+
+          {step === 'email' ? (
+            <>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 12, marginBottom: 14,
+                  background: 'rgba(255,90,9,0.08)', border: '1px solid rgba(255,90,9,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Mail size={22} color="#FF5A09" />
+                </div>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#111', marginBottom: 6 }}>Forgot Password?</h2>
+                <p style={{ fontSize: '0.875rem', color: '#6B7280', lineHeight: 1.5 }}>
+                  Enter the email address linked to your account and we'll send you a one-time password (OTP).
+                </p>
+              </div>
+
+              {error && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', color: '#DC2626', fontSize: '0.875rem', marginBottom: 16 }}>
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={sendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Email Address
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail size={16} color="#9CA3AF" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                    <input
+                      type="email" required value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="admin@syedcars.com"
+                      style={{
+                        width: '100%', border: '1.5px solid #E5E7EB', borderRadius: 10,
+                        padding: '11px 12px 11px 40px', fontSize: '0.875rem', color: '#111',
+                        outline: 'none', background: '#F9FAFB', fontFamily: 'inherit',
+                        boxSizing: 'border-box',
+                      }}
+                      onFocus={e => e.target.style.borderColor = '#FF5A09'}
+                      onBlur={e => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loading} style={{
+                  width: '100%', background: '#FF5A09', color: '#fff',
+                  border: 'none', borderRadius: 10, padding: '12px',
+                  fontWeight: 700, fontSize: '0.9rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.65 : 1,
+                  boxShadow: '0 4px 16px rgba(255,90,9,0.3)',
+                  fontFamily: 'inherit',
+                }}>
+                  {loading ? 'Sending OTPâ€¦' : 'Send OTP'}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 12, marginBottom: 14,
+                  background: 'rgba(255,90,9,0.08)', border: '1px solid rgba(255,90,9,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <KeyRound size={22} color="#FF5A09" />
+                </div>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#111', marginBottom: 6 }}>Enter OTP</h2>
+                <p style={{ fontSize: '0.875rem', color: '#6B7280', lineHeight: 1.5 }}>
+                  We sent a 6-digit OTP to <strong style={{ color: '#111' }}>{email}</strong>. It expires in 10 minutes.
+                </p>
+              </div>
+
+              {error && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', color: '#DC2626', fontSize: '0.875rem', marginBottom: 16 }}>
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={verifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    One-Time Password
+                  </label>
+                  <input
+                    type="text" inputMode="numeric" maxLength={6}
+                    value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="123456"
+                    style={{
+                      width: '100%', border: '1.5px solid #E5E7EB', borderRadius: 10,
+                      padding: '14px 16px', fontSize: '1.5rem', fontWeight: 700, color: '#111',
+                      outline: 'none', background: '#F9FAFB', fontFamily: "'Space Mono',monospace",
+                      letterSpacing: '0.4em', textAlign: 'center', boxSizing: 'border-box',
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#FF5A09'}
+                    onBlur={e => e.target.style.borderColor = '#E5E7EB'}
+                  />
+                </div>
+
+                <button type="submit" disabled={loading || otp.length !== 6} style={{
+                  width: '100%', background: '#FF5A09', color: '#fff',
+                  border: 'none', borderRadius: 10, padding: '12px',
+                  fontWeight: 700, fontSize: '0.9rem',
+                  cursor: (loading || otp.length !== 6) ? 'not-allowed' : 'pointer',
+                  opacity: (loading || otp.length !== 6) ? 0.6 : 1,
+                  boxShadow: '0 4px 16px rgba(255,90,9,0.3)',
+                  fontFamily: 'inherit',
+                }}>
+                  {loading ? 'Verifyingâ€¦' : 'Verify OTP'}
+                </button>
+
+                <button type="button" onClick={() => { setSent(false); setStep('email'); setOtp(''); setError(''); }}
+                  style={{ background: 'none', border: 'none', color: '#FF5A09', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
+                  â† Resend OTP / change email
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
