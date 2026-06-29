@@ -140,7 +140,7 @@ function YearPicker({ value, onChange, baseStyle }) {
   );
 }
 
-function CarForm({ form, onChange, ownersList = [] }) {
+function CarForm({ form, onChange, ownersList = [], isSold = false }) {
   const f = (k) => (e) => onChange({ ...form, [k]: e.target.value });
   const digitsOnly = (k) => (e) => onChange({ ...form, [k]: e.target.value.replace(/\D/g, '') });
   return (
@@ -212,9 +212,15 @@ function CarForm({ form, onChange, ownersList = [] }) {
           </div>
           <div>
             <label style={I.label}>Status</label>
-            <select value={form.status||'AVAILABLE'} onChange={f('status')} style={{...I.base, background:'#fff', cursor:'pointer', appearance:'none'}}>
-              {CAR_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
+            {isSold ? (
+              <div style={{...I.base, background:'#F9FAFB', color:'#9CA3AF', cursor:'not-allowed', display:'flex', alignItems:'center', gap:6}}>
+                SOLD <span style={{fontSize:'0.7rem'}}>(cannot change status of a sold car)</span>
+              </div>
+            ) : (
+              <select value={form.status||'AVAILABLE'} onChange={f('status')} style={{...I.base, background:'#fff', cursor:'pointer', appearance:'none'}}>
+                {CAR_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -311,6 +317,8 @@ export default function AdminCars() {
   const [buyerSaving, setBuyerSaving] = useState(false);
   const [buyerError, setBuyerError] = useState('');
   const [buyerCommForm, setBuyerCommForm] = useState({ seller_amount: '', buyer_amount: '' });
+  const [viewPhotoIdx, setViewPhotoIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const load = useCallback(async (p=1) => {
     setLoading(true); setError('');
@@ -342,6 +350,8 @@ export default function AdminCars() {
     setModalOpen(true);
   };
   const openView = async (car) => {
+    setViewPhotoIdx(0);
+    setLightboxOpen(false);
     try { const res = await adminCarsApi.get(car.id); setViewCar(res?.data ?? car); }
     catch { setViewCar(car); }
   };
@@ -355,6 +365,9 @@ export default function AdminCars() {
   }, [location.search]);
 
   const save = async () => {
+    if (editCar?.status === 'SOLD') {
+      delete form.status; // strip any status field — sold status is immutable
+    }
     setSaving(true); setFormError('');
     try {
       const payload = buildPayload(form);
@@ -369,6 +382,10 @@ export default function AdminCars() {
     finally { setSaving(false); }
   };
   const changeStatus = async (car, status) => {
+    if (car.status === 'SOLD') {
+      toast.error('This car has been sold and its status cannot be changed.');
+      return;
+    }
     if (status === 'RESERVED' || status === 'BOOKED' || status === 'SOLD') {
       setBuyerStatus(status); setBuyerError('');
       setBuyerCommForm({ seller_amount: '', buyer_amount: '' });
@@ -414,10 +431,14 @@ export default function AdminCars() {
     }
     finally { setBuyerSaving(false); }
   };
-  const deleteCar = async (id) => {
+  const deleteCar = async (car) => {
+    if (car.status === 'SOLD') {
+      toast.error('Sold cars cannot be removed.');
+      return;
+    }
     if (!confirm('Remove this car?')) return;
     try {
-      await adminCarsApi.changeStatus(id, 'REMOVED');
+      await adminCarsApi.changeStatus(car.id, 'REMOVED');
       toast.success('Car removed from inventory');
       load(page);
     }
@@ -535,11 +556,17 @@ export default function AdminCars() {
                   <button title="View" onClick={()=>openView(car)} style={{...btnStyle('#3B82F6'), padding:'6px 10px'}}><Eye size={13} /></button>
                   {canOp('cars','update') && <button onClick={()=>openEdit(car)} style={btnStyle('#FF5A09')}><Pencil size={12} /> Edit</button>}
                   {canOp('cars','update') && (
-                    <select value={car.status||''} onChange={e=>changeStatus(car,e.target.value)} style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:6, padding:'6px 8px', color:'#040404', fontSize:'0.72rem', cursor:'pointer', outline:'none', appearance:'none', flex:1, fontFamily:'inherit' }}>
-                      {CAR_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
-                    </select>
+                    car.status === 'SOLD' ? (
+                      <div title="Status locked — car is sold" style={{ flex:1, background:'#F9FAFB', border:'1px solid #E5E7EB', borderRadius:6, padding:'6px 8px', color:'#9CA3AF', fontSize:'0.72rem', fontFamily:'inherit', textAlign:'center', cursor:'not-allowed', userSelect:'none' }}>
+                        SOLD 
+                      </div>
+                    ) : (
+                      <select value={car.status||''} onChange={e=>changeStatus(car,e.target.value)} style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:6, padding:'6px 8px', color:'#040404', fontSize:'0.72rem', cursor:'pointer', outline:'none', appearance:'none', flex:1, fontFamily:'inherit' }}>
+                        {CAR_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    )
                   )}
-                  {canOp('cars','delete') && <button title="Delete" onClick={()=>deleteCar(car.id)} style={{...btnStyle('#EF4444'), padding:'6px 10px'}}><Trash2 size={13} /></button>}
+                  {canOp('cars','delete') && car.status !== 'SOLD' && <button title="Delete" onClick={()=>deleteCar(car)} style={{...btnStyle('#EF4444'), padding:'6px 10px'}}><Trash2 size={13} /></button>}
                 </div>
               </div>
             </div>
@@ -552,7 +579,7 @@ export default function AdminCars() {
       {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={()=>setModalOpen(false)} title={editCar ? `Edit — ${editCar.brand_name} ${editCar.Model}` : 'Add New Car'} wide>
         {formError && <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'9px 14px', color:'#EF4444', fontSize:'0.875rem', marginBottom:14 }}>{formError}</div>}
-        <CarForm form={form} onChange={setForm} />
+        <CarForm form={form} onChange={setForm} isSold={editCar?.status === 'SOLD'} />
         <div style={{ display:'flex', justifyContent:'flex-end', gap:10, paddingTop:16, borderTop:'1px solid #E5E7EB', marginTop:16 }}>
           <button onClick={()=>setModalOpen(false)} style={{ padding:'9px 18px', background:'#F3F4F6', border:'1px solid #E5E7EB', borderRadius:8, color:'#040404', cursor:'pointer', fontFamily:'inherit' }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ padding:'9px 20px', background:'#FF5A09', color:'#d6d3d3', border:'none', borderRadius:8, fontWeight:600, fontSize:'0.875rem', cursor:saving?'not-allowed':'pointer', opacity:saving?0.6:1, boxShadow:'0 2px 12px rgba(255,90,9,0.3)', fontFamily:'inherit' }}>
@@ -562,48 +589,53 @@ export default function AdminCars() {
       </Modal>
 
       {/* View Modal */}
-      <Modal open={!!viewCar} onClose={()=>setViewCar(null)} title="Car Details" wide>
+      <Modal open={!!viewCar} onClose={()=>{ setViewCar(null); setLightboxOpen(false); }} title="Car Details" wide>
         {viewCar && (() => {
           // Extract YouTube video ID for thumbnail
           const ytMatch = viewCar.video_url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
           const ytId = ytMatch?.[1];
           return (
             <div style={{ overflowY:'auto', maxHeight:'75vh', paddingRight:4 }}>
-              {/* Hero: image gallery + info */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 2fr', gap:16, marginBottom:20 }}>
-                {/* Photo gallery */}
-                <div>
-                  <div style={{ borderRadius:10, overflow:'hidden', background:'#F3F4F6', aspectRatio:'4/3', marginBottom:8, position:'relative' }}>
-                    {viewCar.media?.[0]?.image_url
-                      ? <img src={getMediaUrl(viewCar.media[0].image_url)} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                      : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}><span style={{ fontFamily:"inherit", fontSize:'3rem', color:'rgba(0,0,0,0.1)' }}>{viewCar.brand_name?.[0]}</span></div>
-                    }
-                    <div style={{ position:'absolute', top:6, right:6 }}><Badge variant={statusVariant(viewCar.status)}>{viewCar.status}</Badge></div>
-                  </div>
-                  {/* Thumbnails row */}
-                  {viewCar.media?.length > 1 && (
-                    <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                      {viewCar.media.slice(1).map((m, i) => (
-                        <div key={i} style={{ width:52, height:40, borderRadius:6, overflow:'hidden', border:'1px solid #E5E7EB', flexShrink:0 }}>
-                          <img src={getMediaUrl(m.image_url)} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        </div>
-                      ))}
+              {/* Photo gallery - main image on left, vertical thumbnails on right */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 80px', gap:12, marginBottom:16 }}>
+                {/* Main image */}
+                <div
+                  onClick={() => viewCar.media?.[viewPhotoIdx]?.image_url && setLightboxOpen(true)}
+                  style={{ borderRadius:10, overflow:'hidden', background:'#F3F4F6', aspectRatio:'16/10', position:'relative', cursor: viewCar.media?.[viewPhotoIdx]?.image_url ? 'zoom-in' : 'default' }}
+                >
+                  {viewCar.media?.[viewPhotoIdx]?.image_url
+                    ? <img src={getMediaUrl(viewCar.media[viewPhotoIdx].image_url)} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}><span style={{ fontFamily:"inherit", fontSize:'3rem', color:'rgba(0,0,0,0.1)' }}>{viewCar.brand_name?.[0]}</span></div>
+                  }
+                  <div style={{ position:'absolute', top:6, right:6 }}><Badge variant={statusVariant(viewCar.status)}>{viewCar.status}</Badge></div>
+                  {viewCar.media?.length > 1 && viewCar.media[viewPhotoIdx]?.image_url && (
+                    <div style={{ position:'absolute', bottom:6, right:8, background:'rgba(0,0,0,0.5)', color:'#fff', borderRadius:4, padding:'2px 8px', fontSize:'0.65rem', fontFamily:"'Space Mono',monospace" }}>
+                      {viewPhotoIdx + 1} / {viewCar.media.length}
                     </div>
                   )}
                 </div>
-                {/* Info */}
-                <div style={{ display:'flex', flexDirection:'column', justifyContent:'flex-start', gap:10 }}>
-                  <div>
-                    <p style={{ fontSize:'0.65rem', fontFamily:"inherit", textTransform:'uppercase', letterSpacing:'0.1em', color:'#9CA3AF', marginBottom:4 }}>#{viewCar.id}</p>
-                    <h3 style={{ fontFamily:"inherit", fontSize:'1.6rem', color:'#111', fontWeight:500, margin:0 }}>{viewCar.brand_name} {viewCar.Model}</h3>
-                    <p style={{ fontSize:'0.8rem', color:'#3a3b3e', fontFamily:"inherit", marginTop:4 }}>
-                      {viewCar.manufacturing_year} · {viewCar.color} · {viewCar.fuel_type || '—'} · {viewCar.Transmission || '—'}
-                    </p>
+                {/* Vertical thumbnails */}
+                {viewCar.media?.length > 1 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {viewCar.media.map((m, i) => (
+                      <div key={i} onClick={() => setViewPhotoIdx(i)} style={{ width:80, height:60, borderRadius:6, overflow:'hidden', border:`2px solid ${i === viewPhotoIdx ? '#FF5A09' : '#E5E7EB'}`, cursor:'pointer', transition:'border-color 0.15s' }}>
+                        <img src={getMediaUrl(m.image_url)} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ display:'flex', gap:10, alignItems:'baseline' }}>
-                    <p style={{ fontFamily:"inherit", fontSize:'1.5rem', color:'#F0A500', fontWeight:600, margin:0 }}>{formatINR(viewCar.asking_price)}</p>
-                    {viewCar.market_price && <p style={{ fontFamily:"inherit", fontSize:'1.1rem', color:'#9CA3AF', textDecoration:'line-through', margin:0 }}>{formatINR(viewCar.market_price)}</p>}
-                  </div>
+                )}
+              </div>
+
+              {/* Car Info */}
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:'0.65rem', fontFamily:"inherit", textTransform:'uppercase', letterSpacing:'0.1em', color:'#9CA3AF', marginBottom:4 }}>#{viewCar.id}</p>
+                <h3 style={{ fontFamily:"inherit", fontSize:'1.6rem', color:'#111', fontWeight:500, margin:0 }}>{viewCar.brand_name} {viewCar.Model}</h3>
+                <p style={{ fontSize:'0.8rem', color:'#3a3b3e', fontFamily:"inherit", marginTop:4 }}>
+                  {viewCar.manufacturing_year} · {viewCar.color} · {viewCar.fuel_type || '—'} · {viewCar.Transmission || '—'}
+                </p>
+                <div style={{ display:'flex', gap:10, alignItems:'baseline', marginTop:8 }}>
+                  <p style={{ fontFamily:"inherit", fontSize:'1.5rem', color:'#F0A500', fontWeight:600, margin:0 }}>{formatINR(viewCar.asking_price)}</p>
+                  {viewCar.market_price && <p style={{ fontFamily:"inherit", fontSize:'1.1rem', color:'#9CA3AF', textDecoration:'line-through', margin:0 }}>{formatINR(viewCar.market_price)}</p>}
                 </div>
               </div>
               {/* Specs grid */}

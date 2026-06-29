@@ -2,17 +2,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Menu, X, LayoutDashboard, Car } from 'lucide-react';
 import logo from '../../assets/logo1.png';
-
-function hasValidSession() {
-  try {
-    const token = sessionStorage.getItem('sc_admin_token');
-    if (!token) return false;
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 > Date.now();
-  } catch {
-    return false;
-  }
-}
+import { useAuth } from '../../context/AuthContext';
 
 const NAV_LINKS = [
   { to: '/', label: 'Home' },
@@ -25,7 +15,7 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [scrolled,    setScrolled]    = useState(false);
   const [menuOpen,    setMenuOpen]    = useState(false);
-  const [loggedIn,    setLoggedIn]    = useState(hasValidSession);
+  const { isLoggedIn: loggedIn } = useAuth();
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -34,7 +24,7 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => { setMenuOpen(false); setLoggedIn(hasValidSession()); }, [pathname]);
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   return (
     <header style={{

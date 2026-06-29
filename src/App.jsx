@@ -74,7 +74,8 @@ function PageGuard({ permKey, children }) {
 }
 
 function ProtectedRoute() {
-  const { isLoggedIn, isAdmin } = useAuth();
+  const { isLoggedIn, isAdmin, initializing } = useAuth();
+  if (initializing) return <PageLoader />;
   if (!isLoggedIn || !isAdmin) return <Navigate to="/admin/login" replace />;
   return <Outlet />;
 }

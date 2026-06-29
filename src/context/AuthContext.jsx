@@ -26,12 +26,12 @@ function checkOp(user, pageKey, op) {
 }
 
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(auth.getUser());
-  const [loading, setLoading] = useState(false);
+  const [user,         setUser]         = useState(auth.getUser());
+  const [loading,      setLoading]      = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
-  // Refresh permissions from server on every mount / page refresh
+  // Verify session with server on every mount / page refresh
   useEffect(() => {
-    if (!auth.getToken()) return;
     authApi.me().then(fresh => {
       if (fresh) {
         const updated = {
@@ -39,10 +39,15 @@ export function AuthProvider({ children }) {
           role: fresh.role, phone_no: fresh.phone_no, address: fresh.address,
           permissions: fresh.permissions ?? null,
         };
-        auth.setSession(auth.getToken(), updated);
+        auth.setSession(updated);
         setUser(updated);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      auth.clearSession();
+      setUser(null);
+    }).finally(() => {
+      setInitializing(false);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -50,7 +55,8 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await authApi.login({ email, password });
-      auth.setSession(res.token, res.user);
+      // Backend sets HTTP-only cookie, we just store user data locally
+      auth.setSession(res.user);
       setUser(res.user);
       return res;
     } finally {
@@ -58,15 +64,22 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
-    auth.clearSession();
-    setUser(null);
+  const logout = async () => {
+    try {
+      // Call backend to clear the HTTP-only cookie
+      await authApi.logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      auth.clearSession();
+      setUser(null);
+    }
   };
 
   // Call after profile updates that may change stored user data
   const refreshUser = (updated) => {
     const merged = { ...user, ...updated };
-    auth.setSession(auth.getToken(), merged);
+    auth.setSession(merged);
     setUser(merged);
   };
 
@@ -80,7 +93,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, logout, refreshUser,
+      user, loading, initializing, login, logout, refreshUser,
       isAdmin, isLoggedIn, isFullAdmin, can, canOp,
     }}>
       {children}

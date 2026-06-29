@@ -8,22 +8,17 @@ import {
 } from 'lucide-react';
 
 export default function Login() {
-  const { login, loading } = useAuth();
+  const { login, loading, isLoggedIn, initializing } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    try {
-      const token = sessionStorage.getItem('sc_admin_token');
-      if (!token) return;
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.exp * 1000 > Date.now()) {
-        navigate('/admin', { replace: true });
-      }
-    } catch {}
-  }, [navigate]);
+    if (!initializing && isLoggedIn) {
+      navigate('/admin', { replace: true });
+    }
+  }, [initializing, isLoggedIn, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

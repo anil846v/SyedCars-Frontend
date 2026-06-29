@@ -1,43 +1,36 @@
 /**
  * Syed Cars — API Client
  * Reads base URL from .env (VITE_API_BASE_URL)
- * JWT token is stored in sessionStorage (more secure than localStorage)
- * for the admin session; cleared on tab close.
+ * Uses HTTP-only cookies for authentication (more secure, persists across sessions)
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
-// ─── Token helpers (sessionStorage = cleared on tab close) ─────────────────
-const TOKEN_KEY = 'sc_admin_token';
-const USER_KEY  = 'sc_admin_user';
-
+// ─── Auth helpers (cookie-based - no token storage needed) ────────────────
 export const auth = {
-  setSession: (token, user) => {
-    sessionStorage.setItem(TOKEN_KEY, token);
-    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  setSession: (user) => {
+    // Only store user data locally for UI, token is in HTTP-only cookie
+    localStorage.setItem('sc_admin_user', JSON.stringify(user));
   },
   clearSession: () => {
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(USER_KEY);
+    localStorage.removeItem('sc_admin_user');
   },
-  getToken: () => sessionStorage.getItem(TOKEN_KEY),
   getUser: () => {
-    try { return JSON.parse(sessionStorage.getItem(USER_KEY)); }
+    try { return JSON.parse(localStorage.getItem('sc_admin_user')); }
     catch { return null; }
   },
-  isLoggedIn: () => !!sessionStorage.getItem(TOKEN_KEY),
+  isLoggedIn: () => !!localStorage.getItem('sc_admin_user'),
 };
 
 // ─── Core fetch wrapper ─────────────────────────────────────────────────────
 async function request(path, options = {}) {
-  const token = auth.getToken();
   const headers = { ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Cookies are sent automatically by browser, no Authorization header needed
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
@@ -52,6 +45,7 @@ async function request(path, options = {}) {
 // ─── Auth ───────────────────────────────────────────────────────────────────
 export const authApi = {
   login:             (body) => request('/auth/login',           { method: 'POST', body: JSON.stringify(body) }),
+  logout:            ()     => request('/auth/logout',          { method: 'POST' }),
   me:                ()     => request('/auth/me'),
   updateProfile:     (body) => request('/auth/update-profile',  { method: 'PUT',  body: JSON.stringify(body) }),
   changePassword:    (body) => request('/auth/change-password', { method: 'PUT',  body: JSON.stringify(body) }),

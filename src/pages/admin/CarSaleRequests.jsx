@@ -54,6 +54,8 @@ function RequestModal({ request, onClose, onApproved, onRejected }) {
   const [notes, setNotes]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const [viewPhotoIdx, setViewPhotoIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const toast = useToast();
 
   const fmt = (v) => v != null && v !== '' ? v : null;
@@ -81,6 +83,12 @@ function RequestModal({ request, onClose, onApproved, onRejected }) {
     }
   };
 
+  // Reset photo index when modal opens
+  useEffect(() => {
+    setViewPhotoIdx(0);
+    setLightboxOpen(false);
+  }, [request]);
+
   const photos = Array.isArray(request.photos) ? request.photos : [];
 
   return (
@@ -98,7 +106,7 @@ function RequestModal({ request, onClose, onApproved, onRejected }) {
               <span style={{ fontSize: '0.72rem', color: '#9CA3AF' }}>#{request.id} · {new Date(request.created_at).toLocaleString('en-IN', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})}</span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#9CA3AF', padding: 4, lineHeight: 1 }}>✕</button>
+          <button onClick={() => { setLightboxOpen(false); onClose(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#9CA3AF', padding: 4, lineHeight: 1 }}>✕</button>
         </div>
 
         {/* Body */}
@@ -108,10 +116,32 @@ function RequestModal({ request, onClose, onApproved, onRejected }) {
           {photos.length > 0 && (
             <>
               <SectionHead>Photos</SectionHead>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                {photos.map((url, i) => (
-                  <img key={i} src={getMediaUrl(url)} alt="" style={{ width: 90, height: 70, objectFit: 'cover', borderRadius: 8, border: '1px solid #E5E7EB' }} />
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 12, marginBottom: 16 }}>
+                {/* Main image */}
+                <div
+                  onClick={() => photos[viewPhotoIdx] && setLightboxOpen(true)}
+                  style={{ borderRadius: 10, overflow: 'hidden', background: '#F3F4F6', aspectRatio: '16/10', position: 'relative', cursor: photos[viewPhotoIdx] ? 'zoom-in' : 'default' }}
+                >
+                  {photos[viewPhotoIdx]
+                    ? <img src={getMediaUrl(photos[viewPhotoIdx])} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '3rem', opacity: 0.3 }}>🚗</span></div>
+                  }
+                  {photos.length > 1 && photos[viewPhotoIdx] && (
+                    <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.5)', color: '#fff', borderRadius: 4, padding: '2px 8px', fontSize: '0.65rem', fontFamily: "'Space Mono', monospace" }}>
+                      {viewPhotoIdx + 1} / {photos.length}
+                    </div>
+                  )}
+                </div>
+                {/* Vertical thumbnails */}
+                {photos.length > 1 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {photos.map((url, i) => (
+                      <div key={i} onClick={() => setViewPhotoIdx(i)} style={{ width: 80, height: 60, borderRadius: 6, overflow: 'hidden', border: `2px solid ${i === viewPhotoIdx ? '#FF5A09' : '#E5E7EB'}`, cursor: 'pointer', transition: 'border-color 0.15s' }}>
+                        <img src={getMediaUrl(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -211,6 +241,14 @@ function RequestModal({ request, onClose, onApproved, onRejected }) {
           )}
         </div>
       </div>
+
+      {/* Lightbox for zoomed image */}
+      {/* {lightboxOpen && photos[viewPhotoIdx] && (
+        <div onClick={() => setLightboxOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <img src={getMediaUrl(photos[viewPhotoIdx])} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          <button onClick={() => setLightboxOpen(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer', width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+      )} */}
     </div>
   );
 }
