@@ -67,7 +67,9 @@ export default function AdminLayout() {
   // Register PWA service worker only for admin users
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      if (import.meta.env.PROD) {
+        navigator.serviceWorker.register('/sw.js', { scope: '/admin/' }).catch(console.error);
+      }
     }
   }, []);
 

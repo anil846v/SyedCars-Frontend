@@ -124,8 +124,14 @@ export const enquiriesApi = {
 
 // ─── Car Sale Requests ───────────────────────────────────────────────────────
 export const carSaleRequestsApi = {
+
   // Public
-  upload:  (formData)    => request('/car-sale-requests/upload', { method: 'POST', body: formData }),
+  upload:  (formData)    => request('/car-sale-requests/upload', {
+     method: 'POST',
+      body: formData 
+    }),
+    
+
   submit:  (body)        => request('/car-sale-requests',        { method: 'POST', body: JSON.stringify(body) }),
   // Admin
   stats:   ()            => request('/car-sale-requests/admin/stats'),

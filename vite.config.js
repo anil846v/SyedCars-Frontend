@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
       // SW is registered manually inside AdminLayout — not injected globally
       injectRegister: null,
       registerType: 'autoUpdate',
-      includeAssets: ['icons/icon.png', 'icons/maskable-icon.png'],
+      includeAssets: ['icons/icon.png', 'icons/icon-192.png', 'icons/maskable-512.png'],
       manifest: {
         name: 'Syed Cars',
         short_name: 'SC Admin',
@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
         categories: ['business', 'productivity'],
       icons: [
   {
-    src: 'icons/icon.png',
+    src: 'icons/icon-192.png',
     sizes: '192x192',
     type: 'image/png',
     purpose: 'any'
@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => ({
     purpose: 'any'
   },
   {
-    src: 'icons/maskable-icon.png',
+    src: 'icons/maskable-512.png',
     sizes: '512x512',
     type: 'image/png',
     purpose: 'maskable'
@@ -92,11 +92,10 @@ export default defineConfig(({ mode }) => ({
           },
         ],
       },
-      // SW only active in dev when explicitly developing — off in production build
-      devOptions: {
-        enabled: mode === 'development',
-        type: 'module',
-      },
+      // // SW only active in dev when explicitly developing — off in production build
+      // devOptions: {
+      //   enabled: true,
+      // },
     }),
   ],
 }))
